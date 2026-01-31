@@ -1,0 +1,424 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
+    <title>Secure DocuManager - Enterprise</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- PDF-Lib for Client Side PDF Manipulation -->
+    <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+
+    <!-- JSZip for Zip creation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js"></script>
+
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ["Inter", "sans-serif"],
+            },
+            colors: {
+              glass: {
+                100: "rgba(255, 255, 255, 0.1)",
+                200: "rgba(255, 255, 255, 0.2)",
+                300: "rgba(255, 255, 255, 0.3)",
+                border: "rgba(255, 255, 255, 0.2)",
+                text: "rgba(255, 255, 255, 0.9)",
+                muted: "rgba(255, 255, 255, 0.6)",
+              },
+            },
+          },
+        },
+      };
+    </script>
+
+    <link href="style.css" rel="stylesheet" />
+  </head>
+  <body class="flex flex-col">
+    <!-- Background Elements -->
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+
+    <!-- Navigation -->
+    <nav class="glass-panel sticky top-0 z-50 border-b border-glass-border">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex items-center justify-between h-16">
+          <div
+            class="flex items-center gap-2 cursor-pointer"
+            onclick="app.router.navigate('home')"
+          >
+            <i data-lucide="shield-check" class="text-indigo-400 w-8 h-8"></i>
+            <span class="font-bold text-xl tracking-tight hidden sm:block"
+              >Secure DocuManager</span
+            >
+            <span class="font-bold text-xl tracking-tight sm:hidden">SDM</span>
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <button
+                onclick="app.router.navigate('about')"
+                class="hover:bg-glass-200 p-2 rounded-full transition-colors"
+                title="About"
+              >
+                <i data-lucide="info" class="w-5 h-5"></i>
+              </button>
+              <div id="auth-buttons" class="flex items-center gap-2">
+                <!-- Auth content injected via JS -->
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </nav>
+
+    <!-- Main Content Area -->
+    <main
+      class="flex-grow container mx-auto px-4 py-4 sm:py-8 relative z-10 pb-24"
+    >
+      <!-- Auth View -->
+      <div id="view-auth" class="hidden max-w-md mx-auto mt-10 sm:mt-20">
+        <div class="glass-panel rounded-2xl p-8 shadow-2xl">
+          <div class="text-center mb-8">
+            <h2 class="text-3xl font-bold mb-2">Welcome</h2>
+            <p class="text-glass-muted">
+              Secure Enterprise Document Processing
+            </p>
+          </div>
+          <button
+            onclick="app.auth.signIn()"
+            class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-xl transition-all shadow-lg flex items-center justify-center gap-2"
+          >
+            <i data-lucide="log-in" class="w-5 h-5"></i>
+            Sign in to Continue
+          </button>
+        </div>
+      </div>
+
+      <!-- Dashboard View -->
+      <div id="view-dashboard" class="hidden">
+        <!-- Tool Selector (Mobile First) -->
+        <div class="mb-6">
+          <div
+            class="glass-panel rounded-xl p-2 flex overflow-x-auto gap-2 no-scrollbar"
+          >
+            <button
+              onclick="app.ui.setMode('watermark')"
+              id="mode-watermark"
+              class="flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium transition-all whitespace-nowrap"
+            >
+              <i data-lucide="stamp" class="w-4 h-4"></i> Watermark & Sign
+            </button>
+            <button
+              onclick="app.ui.setMode('protect')"
+              id="mode-protect"
+              class="flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-lg hover:bg-glass-200 text-sm font-medium transition-all whitespace-nowrap"
+            >
+              <i data-lucide="lock" class="w-4 h-4"></i> Password Only
+            </button>
+            <button
+              onclick="app.ui.setMode('rotate')"
+              id="mode-rotate"
+              class="flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-lg hover:bg-glass-200 text-sm font-medium transition-all whitespace-nowrap"
+            >
+              <i data-lucide="rotate-cw" class="w-4 h-4"></i> Utilities
+            </button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-12 gap-6">
+          <!-- Left Sidebar: Controls -->
+          <div class="md:col-span-4 space-y-4">
+            <!-- Upload Card -->
+            <div class="glass-panel rounded-2xl p-5">
+              <h3 class="text-base font-semibold mb-3 flex items-center gap-2">
+                <i
+                  data-lucide="upload-cloud"
+                  class="text-indigo-400 w-4 h-4"
+                ></i>
+                Sources
+              </h3>
+              <div
+                id="drop-zone"
+                class="border-2 border-dashed border-glass-border rounded-xl p-6 text-center hover:bg-glass-100 transition-colors cursor-pointer relative"
+              >
+                <input
+                  type="file"
+                  id="file-input"
+                  multiple
+                  accept="application/pdf"
+                  class="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                />
+                <i
+                  data-lucide="file-stack"
+                  class="w-8 h-8 mx-auto mb-2 text-glass-muted"
+                ></i>
+                <p class="text-sm font-medium">Tap to Select PDFs</p>
+                <p class="text-xs text-glass-muted mt-1">
+                  Bulk upload supported
+                </p>
+              </div>
+              <div
+                id="file-count"
+                class="mt-2 text-xs text-right text-glass-muted"
+              >
+                0 files selected
+              </div>
+            </div>
+
+            <!-- Watermark Settings (Conditional) -->
+            <div
+              id="panel-watermark"
+              class="glass-panel rounded-2xl p-5 animate-in fade-in slide-in-from-top-4"
+            >
+              <h3 class="text-base font-semibold mb-3 flex items-center gap-2">
+                <i data-lucide="stamp" class="text-pink-400 w-4 h-4"></i>
+                Configuration
+              </h3>
+              <div class="space-y-3">
+                <div>
+                  <label
+                    class="block text-[10px] uppercase tracking-wide text-glass-muted mb-1"
+                    >Watermark Text</label
+                  >
+                  <input
+                    type="text"
+                    id="wm-text"
+                    placeholder="CONFIDENTIAL"
+                    class="glass-input w-full px-3 py-2 rounded-lg text-sm"
+                  />
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                  <div>
+                    <label
+                      class="block text-[10px] uppercase tracking-wide text-glass-muted mb-1"
+                      >Size</label
+                    >
+                    <input
+                      type="number"
+                      id="wm-size"
+                      value="50"
+                      class="glass-input w-full px-3 py-2 rounded-lg text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label
+                      class="block text-[10px] uppercase tracking-wide text-glass-muted mb-1"
+                      >Opacity (0-1)</label
+                    >
+                    <input
+                      type="number"
+                      id="wm-opacity"
+                      value="0.3"
+                      step="0.1"
+                      max="1"
+                      min="0"
+                      class="glass-input w-full px-3 py-2 rounded-lg text-sm"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label
+                    class="block text-[10px] uppercase tracking-wide text-glass-muted mb-1"
+                    >Position</label
+                  >
+                  <select
+                    id="wm-position"
+                    class="glass-input w-full px-3 py-2 rounded-lg text-sm"
+                  >
+                    <option value="center-diag">
+                      Diagonal Center (Smart Align)
+                    </option>
+                    <option value="center-flat">Horizontal Center</option>
+                    <option value="top-left">Top Left</option>
+                    <option value="top-right">Top Right</option>
+                    <option value="bottom-left">Bottom Left</option>
+                    <option value="bottom-right">Bottom Right</option>
+                  </select>
+                </div>
+
+                <div class="pt-2 border-t border-glass-border">
+                  <label
+                    class="block text-[10px] uppercase tracking-wide text-glass-muted mb-1"
+                    >Signature (Bottom Right)</label
+                  >
+                  <input
+                    type="file"
+                    id="sig-input"
+                    accept="image/png"
+                    class="glass-input w-full text-xs file:mr-2 file:py-1 file:px-2 file:rounded-md file:border-0 file:text-xs file:bg-glass-200 file:text-white"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <!-- Security & Utilities (Shared) -->
+            <div id="panel-security" class="glass-panel rounded-2xl p-5">
+              <h3 class="text-base font-semibold mb-3 flex items-center gap-2">
+                <i data-lucide="lock" class="text-emerald-400 w-4 h-4"></i>
+                <span id="sec-title">Security</span>
+              </h3>
+              <div class="space-y-3">
+                <div id="rotator-control" class="hidden">
+                  <label
+                    class="block text-[10px] uppercase tracking-wide text-glass-muted mb-1"
+                    >Page Rotation</label
+                  >
+                  <select
+                    id="page-rotation"
+                    class="glass-input w-full px-3 py-2 rounded-lg text-sm"
+                  >
+                    <option value="0">None</option>
+                    <option value="90">90° Clockwise</option>
+                    <option value="180">180° Upside Down</option>
+                    <option value="270">90° Counter-Clockwise</option>
+                  </select>
+                </div>
+
+                <div id="password-control">
+                  <label
+                    class="block text-[10px] uppercase tracking-wide text-glass-muted mb-1"
+                    >PDF Password</label
+                  >
+                  <input
+                    type="password"
+                    id="doc-password"
+                    placeholder="Required for Protect Mode"
+                    class="glass-input w-full px-3 py-2 rounded-lg text-sm"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <!-- Desktop Process Button -->
+            <button
+              onclick="app.processor.processQueue()"
+              id="process-btn-desktop"
+              class="hidden md:flex w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-bold py-3 px-4 rounded-xl shadow-lg transition-all items-center justify-center gap-2"
+            >
+              <span>Run Process</span>
+              <i data-lucide="arrow-right" class="w-4 h-4"></i>
+            </button>
+          </div>
+
+          <!-- Right Area: Queue -->
+          <div class="md:col-span-8">
+            <div
+              class="glass-panel rounded-2xl p-5 h-full min-h-[400px] flex flex-col relative"
+            >
+              <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-bold">Queue</h3>
+                <div class="flex gap-2">
+                  <button
+                    onclick="app.processor.downloadZip()"
+                    id="zip-btn"
+                    class="hidden px-3 py-1 bg-emerald-600 hover:bg-emerald-700 rounded-lg text-xs font-bold transition-all flex items-center gap-1"
+                  >
+                    <i data-lucide="archive" class="w-3 h-3"></i> Download All
+                    (ZIP)
+                  </button>
+                  <button
+                    onclick="app.ui.clearFiles()"
+                    class="px-2 py-1 hover:bg-red-500/20 text-red-300 rounded text-xs transition-colors"
+                  >
+                    Clear
+                  </button>
+                </div>
+              </div>
+
+              <div
+                class="grid grid-cols-12 gap-2 text-[10px] uppercase tracking-wide text-glass-muted border-b border-glass-border pb-2 mb-2 px-2"
+              >
+                <div class="col-span-7">File</div>
+                <div class="col-span-5 text-right">Status</div>
+              </div>
+
+              <div
+                id="file-list"
+                class="flex-grow overflow-y-auto space-y-2 pr-1 pb-16"
+              >
+                <div
+                  class="h-40 flex flex-col items-center justify-center text-glass-muted opacity-50"
+                >
+                  <i data-lucide="inbox" class="w-10 h-10 mb-2"></i>
+                  <p class="text-sm">Ready for files</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Mobile FAB Process Button -->
+        <button
+          onclick="app.processor.processQueue()"
+          id="process-btn-mobile"
+          class="md:hidden fab-mobile bg-indigo-600 hover:bg-indigo-700 text-white rounded-full p-4 shadow-xl flex items-center justify-center transition-transform active:scale-95"
+        >
+          <i data-lucide="play" class="w-6 h-6 ml-1"></i>
+        </button>
+      </div>
+
+      <!-- About View -->
+      <div id="view-about" class="hidden">
+        <div class="max-w-2xl mx-auto space-y-6">
+          <button
+            onclick="app.router.navigate('home')"
+            class="mb-4 text-sm text-glass-muted hover:text-white flex items-center gap-1"
+          >
+            <i data-lucide="arrow-left" class="w-4 h-4"></i> Back to Dashboard
+          </button>
+          <div class="glass-panel rounded-2xl p-8 text-center">
+            <h1 class="text-2xl font-bold mb-2">Secure DocuManager</h1>
+            <p class="text-sm text-glass-muted">Enterprise PDF Tools</p>
+          </div>
+          <div class="glass-panel rounded-2xl p-6">
+            <h3 class="font-bold text-lg mb-2">Features</h3>
+            <ul class="space-y-2 text-sm text-glass-muted">
+              <li class="flex items-center gap-2">
+                <i data-lucide="check" class="text-emerald-400 w-3 h-3"></i>
+                Client-side processing (No uploads needed)
+              </li>
+              <li class="flex items-center gap-2">
+                <i data-lucide="check" class="text-emerald-400 w-3 h-3"></i>
+                Diagonal Watermarking with Auto-Centering
+              </li>
+              <li class="flex items-center gap-2">
+                <i data-lucide="check" class="text-emerald-400 w-3 h-3"></i>
+                256-bit AES Password Encryption
+              </li>
+              <li class="flex items-center gap-2">
+                <i data-lucide="check" class="text-emerald-400 w-3 h-3"></i>
+                Bulk ZIP Download
+              </li>
+            </ul>
+          </div>
+          <footer class="text-center text-xs text-glass-muted py-4">
+            Made with ❤️ by Vijay
+          </footer>
+        </div>
+      </div>
+    </main>
+
+    <!-- App Logic -->
+    <script src="config.js"></script>
+
+    <script type="module" src="app.js"></script>
+  </body>
+</html>
