@@ -259,7 +259,7 @@ const app = {
           const url = URL.createObjectURL(processedBlob);
 
           app.processedFiles.push({
-            name: `processed_${files[i].name}`,
+            name: `${files[i].name}`,
             blob: processedBlob,
           });
 
